@@ -1,5 +1,6 @@
 import json
 import http.client
+import csv
 
 MIN_S = 0
 MAX_S = 2000000
@@ -25,16 +26,26 @@ HEADERS = {
 
 
 if __name__ == '__main__':
-    rooms = ''.join([f'&room%5B%5D={room}' for room in range(ROOM_COUNT)])
-
-    conn = http.client.HTTPSConnection("loftfm.mrloft.ru")
-    payload = f'min_s={MIN_S}&max_s={MAX_S}&min_price={MIN_PRICE}&max_price={MAX_PRICE}{rooms}'
-    conn.request("POST", "/getflatdatasearchLoftfm", payload, HEADERS)
-    res = conn.getresponse()
-    data = res.read()
-    data = data.decode("utf-8")
-    with open('response.json', 'w', encoding='utf-8') as f:
-        json.dump(data, f)
+    # rooms = ''.join([f'&room%5B%5D={room}' for room in range(ROOM_COUNT)])
+    #
+    # conn = http.client.HTTPSConnection("loftfm.mrloft.ru")
+    # payload = f'min_s={MIN_S}&max_s={MAX_S}&min_price={MIN_PRICE}&max_price={MAX_PRICE}{rooms}'
+    # conn.request("POST", "/getflatdatasearchLoftfm", payload, HEADERS)
+    # res = conn.getresponse()
+    # data = res.read()
+    # data = data.decode("utf-8")
+    # json_data = json.loads(data)
+    # with open('response.json', 'w', encoding='utf-8') as f:
+    #     json.dump(json_data, f)
     with open('response.json', encoding='utf-8') as f:
         data = json.load(f)
-    print()
+
+    with open('fields_desc.csv', encoding='utf-8-sig') as f:
+        reader = csv.reader(f, dialect='excel', delimiter=';')
+        fields = [row[0] for row in reader]
+
+    for record in data:
+
+
+
+        print()

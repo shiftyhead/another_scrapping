@@ -2,6 +2,7 @@ import json
 import http.client
 import csv
 
+from matching import MATCHING
 MIN_S = 0
 MAX_S = 2000000
 MIN_PRICE = 0
@@ -43,9 +44,14 @@ if __name__ == '__main__':
     with open('fields_desc.csv', encoding='utf-8-sig') as f:
         reader = csv.reader(f, dialect='excel', delimiter=';')
         fields = [row[0] for row in reader]
+    result = []
+    for record in data.get('data'):
+        obj = {}
+        for field in fields:
+            site_field = MATCHING.get(field)
+            value = record.get(site_field)
+            obj[field] = value
+        result.append(obj)
 
-    for record in data:
+    print(result)
 
-
-
-        print()

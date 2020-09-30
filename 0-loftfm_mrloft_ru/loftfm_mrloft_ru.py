@@ -84,6 +84,9 @@ def main():
                 obj['finished'] = 1
                 obj['price_finished_sale'] = obj['price_base']
                 obj['price_base'] = None
+                if obj.get('price_sale'):
+                    obj['price_finished_sale'] = obj['price_sale']
+                    obj['price_sale'] = None
         # Аккумулируем значение статуса из полей "Продано" и "Забронировано"
         if not obj['in_sale']:
             obj['sale_status'] = 'Продано'

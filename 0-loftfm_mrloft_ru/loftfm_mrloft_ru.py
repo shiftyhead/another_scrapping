@@ -1,11 +1,12 @@
 import json
 import http.client
 import re
+import sys
 
 MIN_S = 0
-MAX_S = 2000000
+MAX_S = 200000000000
 MIN_PRICE = 0
-MAX_PRICE = 25000000
+MAX_PRICE = 25000000000000000
 ROOM_COUNT = 10
 
 HEADERS = {
@@ -31,22 +32,20 @@ FIELDS = ['complex', 'type', 'phase', 'building', 'section', 'price', 'price_bas
 MATCHING = {
     'area': {'name': 's', 'calc': lambda x: float(x) if x else None},
     'living_area': {'name': 's_living', 'calc': lambda x: float(x) if x else None},
-    'complex': {'calc': lambda x: 'LOFT FM - апартаменты в ЦАО Москвы'},
-    'building': {'name': 'house_id', 'calc': lambda x: str(x) if x else None},
+    'complex': {'calc': lambda x: 'LOFT FM (Москва)'},
     'price_base': {'name': 'priceToSort', 'calc': lambda x: float(x) if x else None},
-    'number': {'name': 'id', 'calc': lambda x: str(x) if x else None},
-    'number_on_site': {'name': 'number', 'calc': lambda x: str(x) if x else None},
+    'number': {'name': 'number', 'calc': lambda x: str(x) if x else None},
     'rooms': {'name': 'rooms', 'calc': lambda x: int(x) if x else None},
     'floor': {'name': 'floor', 'calc': lambda x: int(x) if x else None},
     'in_sale': {'name': 'sold', 'calc': lambda x: 0 if x else 1},
     'plan': {'name': 'first_plan_url', 'calc': lambda x: str(x[0][0]) if x else None},
     'sale': {'name': 'special_text', 'calc': lambda x: str(x) if x else None},
+    'finished': {'calc': lambda x: 0},
 }
 
 
-if __name__ == '__main__':
+def main():
     rooms = ''.join([f'&room%5B%5D={room}' for room in range(ROOM_COUNT)])
-
     conn = http.client.HTTPSConnection("loftfm.mrloft.ru")
     payload = f'min_s={MIN_S}&max_s={MAX_S}&min_price={MIN_PRICE}&max_price={MAX_PRICE}{rooms}'
     conn.request("POST", "/getflatdatasearchLoftfm", payload, HEADERS)
@@ -54,7 +53,6 @@ if __name__ == '__main__':
     data = res.read()
     data = data.decode("utf-8")
     json_data = json.loads(data)
-
     result = []
     for record in json_data.get('data'):
         obj = {}
@@ -68,22 +66,28 @@ if __name__ == '__main__':
                 value = calc(value)
             obj[field] = value
 
-        # Отдельно читаем информацию о скидках и отделке из акций
+        # Отдельно читаем информацию о скидках и отделках из акций
         sale = obj.get('sale')
         if sale and isinstance(sale, str):
             rub = sale.find('Цена указана с учетом скидки')
             if rub >= 0:
                 pattern = re.compile(r'\d')
                 discount = float(''.join(pattern.findall(sale)))
-                obj['price_sale'] = obj['price_base']
-                obj['price_base'] += discount
                 obj['discount'] = discount
+                obj['price_sale'] = obj['price_base']
+                obj['price_base'] = None
             finishing = sale.find(' отделка в подарок')
             if finishing >= 0:
                 pattern = re.compile(r'\w+ отделка')
-                finishing_name = ''.join(pattern.findall(sale))
+                finishing_name = ''.join(pattern.findall(sale)).replace(' отделка', '')
                 obj['finishing_name'] = finishing_name
-
+                obj['finished'] = 1
+                obj['price_finished'] = obj['price_base']
+                obj['price_base'] = None
+                if obj.get('price_sale'):
+                    obj['price_finished_sale'] = obj['price_finished']
+                    obj['price_finished'] = None
+                    obj['price_sale'] = None
         # Аккумулируем значение статуса из полей "Продано" и "Забронировано"
         if not obj['in_sale']:
             obj['sale_status'] = 'Продано'
@@ -100,6 +104,10 @@ if __name__ == '__main__':
             obj['type'] = 'commercial'
         result.append(obj)
 
+    output = json.dumps(result, ensure_ascii=False)
     # Выводим данные в поток
-    print(result)
+    sys.stdout.write(output)
 
+
+if __name__ == '__main__':
+    main()

@@ -1,3 +1,8 @@
+"""
+Парсер цен с сайта loftfm.mrloft.ru.
+Использует данные из API getflatdatasearchLoftfm, затем приводит их к формату FIELDS с необходимыми преобразованиями.
+Выводит данные в формате JSON  в поток вывода
+"""
 import json
 import http.client
 import re
@@ -27,20 +32,50 @@ HEADERS = {
 FIELDS = ['complex', 'type', 'phase', 'building', 'section', 'price', 'price_base', 'price_finished', 'price_sale',
           'price_finished_sale', 'area', 'living_area', 'number', 'number_on_site', 'rooms', 'floor', 'in_sale',
           'sale_status', 'finished', 'currency', 'ceil', 'article', 'finishing_name', 'furniture', 'furniture_price',
-          'plan',
-          'feature', 'view', 'euro_planning', 'sale', 'discount_percent', 'discount', 'comment']
+          'plan', 'feature', 'view', 'euro_planning', 'sale', 'discount_percent', 'discount', 'comment']
 MATCHING = {
-    'area': {'name': 's', 'calc': lambda x: float(x) if x else None},
-    'living_area': {'name': 's_living', 'calc': lambda x: float(x) if x else None},
-    'complex': {'calc': lambda x: 'LOFT FM (Москва)'},
-    'price_base': {'name': 'priceToSort', 'calc': lambda x: float(x) if x else None},
-    'number': {'name': 'number', 'calc': lambda x: str(x) if x else None},
-    'rooms': {'name': 'rooms', 'calc': lambda x: int(x) if x else None},
-    'floor': {'name': 'floor', 'calc': lambda x: int(x) if x else None},
-    'in_sale': {'name': 'sold', 'calc': lambda x: 0 if x else 1},
-    'plan': {'name': 'first_plan_url', 'calc': lambda x: str(x[0][0]) if x else None},
-    'sale': {'name': 'special_text', 'calc': lambda x: str(x) if x else None},
-    'finished': {'calc': lambda x: 0},
+    'area': {
+        'name': 's',
+        'calc': lambda x: float(x) if x else None
+    },
+    'living_area': {
+        'name': 's_living',
+        'calc': lambda x: float(x) if x else None
+    },
+    'complex': {
+        'calc': lambda x: 'LOFT FM (Москва)'
+    },
+    'price_base': {
+        'name': 'priceToSort',
+        'calc': lambda x: float(x) if x else None
+    },
+    'number': {
+        'name': 'number',
+        'calc': lambda x: str(x) if x else None
+    },
+    'rooms': {
+        'name': 'rooms',
+        'calc': lambda x: int(x) if x else None
+    },
+    'floor': {
+        'name': 'floor',
+        'calc': lambda x: int(x) if x else None
+    },
+    'in_sale': {
+        'name': 'sold',
+        'calc': lambda x: 0 if x else 1
+    },
+    'plan': {
+        'name': 'first_plan_url',
+        'calc': lambda x: str(x[0][0]) if x else None
+    },
+    'sale': {
+        'name': 'special_text',
+        'calc': lambda x: str(x) if x else None
+    },
+    'finished': {
+        'calc': lambda x: 0
+    },
 }
 
 

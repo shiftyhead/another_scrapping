@@ -3,6 +3,7 @@
 Использует данные из API getflatdatasearchLoftfm, затем приводит их к формату FIELDS с необходимыми преобразованиями.
 Выводит данные в формате JSON  в поток вывода
 """
+import argparse
 import json
 import http.client
 import re
@@ -79,8 +80,8 @@ MATCHING = {
 }
 
 
-def main():
-    rooms = ''.join([f'&room%5B%5D={room}' for room in range(ROOM_COUNT)])
+def main(room_filter=ROOM_COUNT):
+    rooms = ''.join([f'&room%5B%5D={room}' for room in range(room_filter)])
     conn = http.client.HTTPSConnection("loftfm.mrloft.ru")
     payload = f'min_s={MIN_S}&max_s={MAX_S}&min_price={MIN_PRICE}&max_price={MAX_PRICE}{rooms}'
     conn.request("POST", "/getflatdatasearchLoftfm", payload, HEADERS)
@@ -144,4 +145,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rooms", type=int, nargs='?',
+                        const=10, default=False,
+                        help="Rooms filter.")
+
+    args = parser.parse_args()
+    main(room_filter=args.rooms + 1)

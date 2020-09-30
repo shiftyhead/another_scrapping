@@ -80,6 +80,56 @@ MATCHING = {
 }
 
 
+def cast_fields(record: dict, fields: list, matching: dict):
+    """
+    Для каждого поля из fields определяет значение на основе матчинга полей и преобразований типов
+    :param record: Данные из API
+    :param fields: Поля, к которым нужно привести каждую запись
+    :param matching: Данные для матчинга полей и преобразования
+    :return:
+    """
+    obj = {}
+    # Для каждого поля определяем значение на основе матчинга полей и преобразований типов
+    for field in fields:
+        matching_params = matching.get(field, {})
+        site_field = matching_params.get('name')
+        value = record.get(site_field)
+        calc = matching_params.get('calc')
+        if calc:
+            value = calc(value)
+        obj[field] = value
+    return obj
+
+
+def check_sales_and_finishing(obj):
+    """
+    Преобразовывает объект напрямую, ничего не возвращает, это просто вынесенный в функцию кусок кода
+    :param obj: Объект, который нужно преобразовать
+    :return:
+    """
+    sale = obj.get('sale')
+    if sale and isinstance(sale, str):
+        rub = sale.find('Цена указана с учетом скидки')
+        if rub >= 0:
+            pattern = re.compile(r'\d')
+            discount = float(''.join(pattern.findall(sale)))
+            obj['discount'] = discount
+            obj['price_sale'] = obj['price_base']
+            obj['price_base'] = None
+        finishing = sale.find(' отделка в подарок')
+        if finishing >= 0:
+            pattern = re.compile(r'\w+ отделка')
+            finishing_name = ''.join(pattern.findall(sale)).replace(' отделка', '')
+            obj['finishing_name'] = finishing_name
+            obj['finished'] = 1
+            # Если есть акция на ремонт - цена уже как бы со скидкой
+            obj['price_finished_sale'] = obj['price_base']
+            obj['price_base'] = None
+            if obj.get('price_sale'):
+                obj['price_finished_sale'] = obj['price_sale']
+                obj['price_sale'] = None
+
+
 def main(room_filter=ROOM_COUNT):
     rooms = ''.join([f'&room%5B%5D={room}' for room in range(room_filter)])
     conn = http.client.HTTPSConnection("loftfm.mrloft.ru")
@@ -91,38 +141,12 @@ def main(room_filter=ROOM_COUNT):
     json_data = json.loads(data)
     result = []
     for record in json_data.get('data'):
-        obj = {}
-        # Для каждого поля определяем значение на основе матчинга полей и преобразований типов
-        for field in FIELDS:
-            matching_params = MATCHING.get(field, {})
-            site_field = matching_params.get('name')
-            value = record.get(site_field)
-            calc = matching_params.get('calc')
-            if calc:
-                value = calc(value)
-            obj[field] = value
+        # Получаем основные поля из матчинга
+        obj = cast_fields(record, FIELDS, MATCHING)
 
         # Отдельно читаем информацию о скидках и отделках из акций
-        sale = obj.get('sale')
-        if sale and isinstance(sale, str):
-            rub = sale.find('Цена указана с учетом скидки')
-            if rub >= 0:
-                pattern = re.compile(r'\d')
-                discount = float(''.join(pattern.findall(sale)))
-                obj['discount'] = discount
-                obj['price_sale'] = obj['price_base']
-                obj['price_base'] = None
-            finishing = sale.find(' отделка в подарок')
-            if finishing >= 0:
-                pattern = re.compile(r'\w+ отделка')
-                finishing_name = ''.join(pattern.findall(sale)).replace(' отделка', '')
-                obj['finishing_name'] = finishing_name
-                obj['finished'] = 1
-                obj['price_finished_sale'] = obj['price_base']
-                obj['price_base'] = None
-                if obj.get('price_sale'):
-                    obj['price_finished_sale'] = obj['price_sale']
-                    obj['price_sale'] = None
+        check_sales_and_finishing(obj)
+
         # Аккумулируем значение статуса из полей "Продано" и "Забронировано"
         if not obj['in_sale']:
             obj['sale_status'] = 'Продано'
@@ -151,4 +175,5 @@ if __name__ == '__main__':
                         help="Rooms filter.")
 
     args = parser.parse_args()
-    main(room_filter=args.rooms + 1)
+    rooms_param = ROOM_COUNT if not args.rooms else args.rooms + 1
+    main(room_filter=rooms_param)

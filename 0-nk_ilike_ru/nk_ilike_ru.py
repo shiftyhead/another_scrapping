@@ -1,19 +1,12 @@
 """
-Парсер цен с сайта loftfm.mrloft.ru.
-Использует данные из API getflatdatasearchLoftfm, затем приводит их к формату FIELDS с необходимыми преобразованиями.
+Парсер цен с сайта nk.ilike.ru.
+Использует данные из API flatmodels, затем приводит их к формату FIELDS с необходимыми преобразованиями.
 Выводит данные в формате JSON  в поток вывода
 """
-import argparse
 import json
 import http.client
-import re
 import sys
 
-MIN_S = 0
-MAX_S = 200000000000
-MIN_PRICE = 0
-MAX_PRICE = 25000000000000000
-ROOM_COUNT = 10
 
 FIELDS = ['complex', 'type', 'phase', 'building', 'section', 'price', 'price_base', 'price_finished', 'price_sale',
           'price_finished_sale', 'area', 'living_area', 'number', 'number_on_site', 'rooms', 'floor', 'in_sale',
@@ -77,7 +70,11 @@ MATCHING = {
     },
     'furniture': {
         'name': 'furniture',
-        'calc': lambda x: x if x else None
+        'calc': lambda x: 1 if x else None
+    },
+    'furniture_price': {
+        'name': 'furniture',
+        'calc': lambda x: max([i['price'] for i in x]) if x else None
     },
     'article': {
         'name': 'uid',
@@ -107,37 +104,7 @@ def cast_fields(record: dict, fields: list, matching: dict):
     return obj
 
 
-def check_sales_and_finishing(obj):
-    """
-    Преобразовывает объект напрямую, ничего не возвращает, это просто вынесенный в функцию кусок кода
-    :param obj: Объект, который нужно преобразовать
-    :return:
-    """
-    sale = obj.get('sale')
-    if sale and isinstance(sale, str):
-        rub = sale.find('Цена указана с учетом скидки')
-        if rub >= 0:
-            pattern = re.compile(r'\d')
-            discount = float(''.join(pattern.findall(sale)))
-            obj['discount'] = discount
-            obj['price_sale'] = obj['price_base']
-            obj['price_base'] = None
-        finishing = sale.find(' отделка в подарок')
-        if finishing >= 0:
-            pattern = re.compile(r'\w+ отделка')
-            finishing_name = ''.join(pattern.findall(sale)).replace(' отделка', '')
-            obj['finishing_name'] = finishing_name
-            obj['finished'] = 1
-            # Если есть акция на ремонт - цена уже как бы со скидкой
-            obj['price_finished_sale'] = obj['price_base']
-            obj['price_base'] = None
-            if obj.get('price_sale'):
-                obj['price_finished_sale'] = obj['price_sale']
-                obj['price_sale'] = None
-
-
-def main(room_filter=ROOM_COUNT):
-    rooms = ''.join([f'&room%5B%5D={room}' for room in range(room_filter)])
+def main():
     conn = http.client.HTTPSConnection("nk.ilike.ru")
     payload = ''
     conn.request("GET", "/api/flatmodels", payload)
@@ -145,8 +112,8 @@ def main(room_filter=ROOM_COUNT):
     data = res.read()
     data = data.decode("utf-8")
     json_data = json.loads(data)
-    with open('response.json', 'w', encoding='utf-8') as f:
-        json.dump(json_data, f)
+    # with open('response.json', 'w', encoding='utf-8') as f:
+    #     json.dump(json_data, f)
     # with open('response.json', encoding='utf-8') as f:
     #     json_data = json.load(f)
     result = []
@@ -171,18 +138,10 @@ def main(room_filter=ROOM_COUNT):
                           f'room_count={record["room_count"]}&' \
                           f'house={house["name"]}'
             result.append(obj)
-
     output = json.dumps(result, ensure_ascii=False)
     # Выводим данные в поток
     sys.stdout.write(output)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--rooms", type=int, nargs='?',
-                        const=10, default=False,
-                        help="Rooms filter.")
-
-    args = parser.parse_args()
-    rooms_param = ROOM_COUNT if not args.rooms else args.rooms + 1
-    main(room_filter=rooms_param)
+    main()

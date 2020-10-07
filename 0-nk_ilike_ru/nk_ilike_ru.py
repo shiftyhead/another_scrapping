@@ -139,28 +139,32 @@ def process_data(complex_name, complex_url, endpoint):
     #     json.dump(json_data, f)
     # with open('response.json', encoding='utf-8') as f:
     #     json_data = json.load(f)
+    json_data = [x for x in json_data if not x['reserved'] and 1000000 < x['price'] < 10000000 and 19 < x['space'] < 96]
     result = []
-    for house in json_data:
-        for record in house.get('data'):
-            # Получаем основные поля из матчинга
-            obj = cast_fields(record, FIELDS, MATCHING)
+    for record in json_data:
+        if record['reserved']:
+            continue
+        # Получаем основные поля из матчинга
+        obj = cast_fields(record, FIELDS, MATCHING)
 
-            if obj['finished']:
-                obj['price_finished'] = obj['price_base']
-                obj['price_base'] = None
-            obj['complex'] = complex_name
-            # Ссылка на план
-            obj['plan'] = f'{complex_url}api/pdf?' \
-                          f'flatNumber={record["flat_numer"]}&' \
-                          f'uid={record["uid"]}&' \
-                          f'cost={record["price"]}&' \
-                          f'space={record["space"]}&' \
-                          f'section={record["section"]}&' \
-                          f'floor={record["floor"]}&' \
-                          f'decor={record["decor"]}&' \
-                          f'room_count={record["room_count"]}&' \
-                          f'house={house["name"]}'
-            result.append(obj)
+        if obj['finished']:
+            obj['price_finished'] = obj['price_base']
+            obj['price_base'] = None
+        else:
+            obj['finishing_name'] = None
+        obj['complex'] = complex_name
+        # Ссылка на план
+        obj['plan'] = f'{complex_url}api/pdf?' \
+                      f'flatNumber={record["flat_numer"]}&' \
+                      f'cost={record["price"]}&' \
+                      f'space={record["space"]}&' \
+                      f'section={record["section"]}&' \
+                      f'floor={record["floor"]}&' \
+                      f'decor={record["decor"]}&' \
+                      f'room_count={record["room_count"]}&' \
+                      f'house={record["house"]}'
+        result.append(obj)
+
     return result
 
 
@@ -174,7 +178,7 @@ def main():
     logger = logging.getLogger('ilike')
     complex_links = get_subdomains()
     result = []
-    endpoint = '/api/flatmodels'
+    endpoint = '/api/flatmodels/getAllFlatData'
     for complex_name, complex_url in complex_links.items():
         try:
             result.extend(process_data(complex_name, complex_url, endpoint))

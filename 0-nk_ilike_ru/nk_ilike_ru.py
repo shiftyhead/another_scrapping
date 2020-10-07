@@ -5,8 +5,11 @@
 """
 import json
 import http.client
+import logging
 import sys
+from json import JSONDecodeError
 
+from bs4 import BeautifulSoup
 
 FIELDS = ['complex', 'type', 'phase', 'building', 'section', 'price', 'price_base', 'price_finished', 'price_sale',
           'price_finished_sale', 'area', 'living_area', 'number', 'number_on_site', 'rooms', 'floor', 'in_sale',
@@ -32,9 +35,6 @@ MATCHING = {
     'section': {
         'name': 'section',
         'calc': lambda x: int(x) if x else None
-    },
-    'complex': {
-        'calc': lambda x: 'Новокрасково (Москва)'
     },
     'price_base': {
         'name': 'price',
@@ -104,14 +104,37 @@ def cast_fields(record: dict, fields: list, matching: dict):
     return obj
 
 
-def main():
-    conn = http.client.HTTPSConnection("nk.ilike.ru")
-    payload = ''
-    conn.request("GET", "/api/flatmodels", payload)
+def get_html(address, endpoint, method, payload):
+    if 'https://' in address:
+        address = address.replace('https://', '')
+    if address[-1] == '/':
+        address = address[:-1]
+    conn = http.client.HTTPSConnection(address)
+    conn.request(method, endpoint, payload)
     res = conn.getresponse()
     data = res.read()
-    data = data.decode("utf-8")
-    json_data = json.loads(data)
+    return data.decode("utf-8")
+
+
+def get_subdomains():
+    data = get_html('ilike.ru', '/#complexes', 'GET', '')
+
+    soup = BeautifulSoup(data, 'html.parser')
+    complexes = soup.findAll("li", {"class": "complexes__item"})
+    complex_links = {f'{complex.a.figure.figcaption.h3.text} ({str(complex.a.figure.figcaption.p.text).strip()})': complex.a.attrs['href']
+                     for complex in complexes}
+    return complex_links
+
+
+def process_data(complex_name, complex_url, endpoint):
+    try:
+        data = get_html(complex_url, endpoint, 'GET', '')
+    except Exception as e:
+        raise MyException(f'Сетевая ошибка, вероятно API {endpoint} не реализовано', e)
+    try:
+        json_data = json.loads(data)
+    except JSONDecodeError as e:
+        raise MyException(f'JSON не получен, вероятно API {endpoint} не реализовано', e)
     # with open('response.json', 'w', encoding='utf-8') as f:
     #     json.dump(json_data, f)
     # with open('response.json', encoding='utf-8') as f:
@@ -125,9 +148,9 @@ def main():
             if obj['finished']:
                 obj['price_finished'] = obj['price_base']
                 obj['price_base'] = None
-
+            obj['complex'] = complex_name
             # Ссылка на план
-            obj['plan'] = f'https://nk.ilike.ru/api/pdf?' \
+            obj['plan'] = f'{complex_url}api/pdf?' \
                           f'flatNumber={record["flat_numer"]}&' \
                           f'uid={record["uid"]}&' \
                           f'cost={record["price"]}&' \
@@ -138,6 +161,25 @@ def main():
                           f'room_count={record["room_count"]}&' \
                           f'house={house["name"]}'
             result.append(obj)
+    return result
+
+
+class MyException(Exception):
+    def __init__(self, msg, err):
+        self.msg = msg
+        self.err = err
+
+
+def main():
+    logger = logging.getLogger('ilike')
+    complex_links = get_subdomains()
+    result = []
+    endpoint = '/api/flatmodels'
+    for complex_name, complex_url in complex_links.items():
+        try:
+            result.extend(process_data(complex_name, complex_url, endpoint))
+        except MyException as e:
+            logger.error(f'Ошибка при парсинге {complex_url + endpoint}: {e.msg}, подробнее: {e.err}')
     output = json.dumps(result, ensure_ascii=False)
     # Выводим данные в поток
     sys.stdout.write(output)

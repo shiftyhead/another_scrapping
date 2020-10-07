@@ -66,7 +66,7 @@ MATCHING = {
     },
     'finishing_name': {
         'name': 'decor',
-        'calc': lambda x: {x == -1: 'Без отделки', x == 1: 'Черновая', x == 3: 'Классика', x == 4: 'Модерн'}[True]
+        'calc': lambda x: {x == -1: None, x == 1: 'Черновая', x == 3: 'Классика', x == 4: 'Модерн'}[True]
     },
     'furniture': {
         'name': 'furniture',
@@ -179,7 +179,8 @@ def main():
         try:
             result.extend(process_data(complex_name, complex_url, endpoint))
         except MyException as e:
-            logger.error(f'Ошибка при парсинге {complex_url + endpoint}: {e.msg}, подробнее: {e.err}')
+            pass
+            # logger.error(f'Ошибка при парсинге {complex_url + endpoint}: {e.msg}, подробнее: {e.err}')
     output = json.dumps(result, ensure_ascii=False)
     # Выводим данные в поток
     sys.stdout.write(output)

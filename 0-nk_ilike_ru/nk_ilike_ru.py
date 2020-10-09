@@ -46,7 +46,7 @@ MATCHING = {
     },
     'rooms': {
         'name': 'room_count',
-        'calc': lambda x: int(x) if x else None
+        'calc': lambda x: int(x) if x else 'studio'
     },
     'floor': {
         'name': 'floor',

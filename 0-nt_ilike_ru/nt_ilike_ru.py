@@ -141,7 +141,7 @@ def process_data(complex_name, complex_url, endpoint, payload):
         if not obj['number'] and obj['rooms'] == 1:
             obj['type'] = 'commercial'
         # Ссылка на план
-        if complex_url == 'https://vb2.ilike.ru/':
+        if complex_url in ['https://vb2.ilike.ru/', 'https://nt.ilike.ru/']:
             obj['plan'] = f'{complex_url}assets/floor-plans/house_{record["house"]}' \
                           f'/section_{record["section"]}' \
                           f'/floor_{record["floor"]}' \
@@ -183,6 +183,7 @@ def main():
         except MyException as e:
             pass
             # logger.error(f'Ошибка при парсинге {complex_url + endpoint}: {e.msg}, подробнее: {e.err}')
+    x = [x for x in result if not x['plan']]
     output = json.dumps(result, ensure_ascii=False)
     # Выводим данные в поток
     sys.stdout.write(output)

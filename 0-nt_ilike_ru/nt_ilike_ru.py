@@ -129,7 +129,6 @@ def process_data(complex_name, complex_url, endpoint, payload):
     # with open('response.json', encoding='utf-8') as f:
     #     json_data = json.load(f)
     result = []
-
     for record in json_data:
         # Получаем основные поля из матчинга
         obj = cast_fields(record, FIELDS, MATCHING)
@@ -139,6 +138,8 @@ def process_data(complex_name, complex_url, endpoint, payload):
             obj['price_base'] = None
         obj['complex'] = complex_name
 
+        if not obj['number'] and obj['rooms'] == 1:
+            obj['type'] = 'commercial'
         # Ссылка на план
         if complex_url == 'https://vb2.ilike.ru/':
             obj['plan'] = f'{complex_url}assets/floor-plans/house_{record["house"]}' \
@@ -149,6 +150,7 @@ def process_data(complex_name, complex_url, endpoint, payload):
             obj['plan'] = f'{complex_url}api/pdf?' \
                           f'id={record["_id"]}'
         result.append(obj)
+
     return result
 
 
